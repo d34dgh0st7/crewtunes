@@ -37,10 +37,12 @@ interface Share {
   created_at: string;
 }
 
+// Extended Profile with selected flag for UI
 interface Profile {
   id: string;
   email: string;
   preferred_platform?: string;
+  selected?: boolean;   // <-- This fixes the error
 }
 
 export default function CrewTunes() {
@@ -83,21 +85,38 @@ export default function CrewTunes() {
   }, [user]);
 
   const loadUserProfile = async () => {
-    const { data } = await supabase.from('profiles').select('preferred_platform').eq('id', user.id).single();
+    const { data } = await supabase
+      .from('profiles')
+      .select('preferred_platform')
+      .eq('id', user.id)
+      .single();
+
     if (data?.preferred_platform) setMyPreferredPlatform(data.preferred_platform);
   };
 
   const loadAllUsers = async () => {
     setLoadingUsers(true);
-    const { data, error } = await supabase.from('profiles').select('id, email, preferred_platform').neq('id', user.id);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, preferred_platform')
+      .neq('id', user.id);
+
     if (error) console.error(error);
-    else setAllUsers(data || []);
+    else {
+      // Initialize with selected: false
+      const usersWithSelection = (data || []).map(u => ({ ...u, selected: false }));
+      setAllUsers(usersWithSelection);
+    }
     setLoadingUsers(false);
   };
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    const { data, error } = await supabase.from('shares').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('shares')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (error) console.error(error);
     else setShares(data || []);
     setLoadingHistory(false);
@@ -105,7 +124,10 @@ export default function CrewTunes() {
 
   const savePreferredPlatform = async (platform: string) => {
     setMyPreferredPlatform(platform);
-    await supabase.from('profiles').update({ preferred_platform: platform }).eq('id', user.id);
+    await supabase
+      .from('profiles')
+      .update({ preferred_platform: platform })
+      .eq('id', user.id);
   };
 
   const handleSearch = async () => {
@@ -170,10 +192,12 @@ export default function CrewTunes() {
   };
 
   const toggleUser = (id: string) => {
-    setAllUsers(prev => prev.map(u => u.id === id ? { ...u, selected: !u.selected } : u));
+    setAllUsers(prev => prev.map(u => 
+      u.id === id ? { ...u, selected: !u.selected } : u
+    ));
   };
 
-  const selectedUsers = allUsers.filter(u => u.selected);
+  const selectedUsers = allUsers.filter(u => u.selected === true);
 
   const handleShare = async (song: SongInfo) => {
     if (selectedUsers.length === 0) {
@@ -196,6 +220,7 @@ export default function CrewTunes() {
     };
 
     const { error } = await supabase.from('shares').insert(newShare);
+
     if (error) alert(`Failed to save: ${error.message}`);
     else {
       fetchHistory();
@@ -419,7 +444,8 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
+                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
