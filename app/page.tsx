@@ -37,12 +37,11 @@ interface Share {
   created_at: string;
 }
 
-// Extended Profile with selected flag for UI
 interface Profile {
   id: string;
   email: string;
   preferred_platform?: string;
-  selected?: boolean;   // <-- This fixes the error
+  selected?: boolean;
 }
 
 export default function CrewTunes() {
@@ -85,25 +84,15 @@ export default function CrewTunes() {
   }, [user]);
 
   const loadUserProfile = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('preferred_platform')
-      .eq('id', user.id)
-      .single();
-
+    const { data } = await supabase.from('profiles').select('preferred_platform').eq('id', user.id).single();
     if (data?.preferred_platform) setMyPreferredPlatform(data.preferred_platform);
   };
 
   const loadAllUsers = async () => {
     setLoadingUsers(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, preferred_platform')
-      .neq('id', user.id);
-
+    const { data, error } = await supabase.from('profiles').select('id, email, preferred_platform').neq('id', user.id);
     if (error) console.error(error);
     else {
-      // Initialize with selected: false
       const usersWithSelection = (data || []).map(u => ({ ...u, selected: false }));
       setAllUsers(usersWithSelection);
     }
@@ -112,11 +101,7 @@ export default function CrewTunes() {
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from('shares')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data, error } = await supabase.from('shares').select('*').order('created_at', { ascending: false });
     if (error) console.error(error);
     else setShares(data || []);
     setLoadingHistory(false);
@@ -124,10 +109,7 @@ export default function CrewTunes() {
 
   const savePreferredPlatform = async (platform: string) => {
     setMyPreferredPlatform(platform);
-    await supabase
-      .from('profiles')
-      .update({ preferred_platform: platform })
-      .eq('id', user.id);
+    await supabase.from('profiles').update({ preferred_platform: platform }).eq('id', user.id);
   };
 
   const handleSearch = async () => {
@@ -192,9 +174,7 @@ export default function CrewTunes() {
   };
 
   const toggleUser = (id: string) => {
-    setAllUsers(prev => prev.map(u => 
-      u.id === id ? { ...u, selected: !u.selected } : u
-    ));
+    setAllUsers(prev => prev.map(u => u.id === id ? { ...u, selected: !u.selected } : u));
   };
 
   const selectedUsers = allUsers.filter(u => u.selected === true);
@@ -220,7 +200,6 @@ export default function CrewTunes() {
     };
 
     const { error } = await supabase.from('shares').insert(newShare);
-
     if (error) alert(`Failed to save: ${error.message}`);
     else {
       fetchHistory();
@@ -429,7 +408,7 @@ export default function CrewTunes() {
             )}
           </div>
 
-          {/* Your Songs */}
+          {/* Your Songs - Final Version */}
           <div>
             <h2 className="text-2xl font-semibold mb-8 flex items-center gap-3">
               <Clock className="w-6 h-6 text-violet-400" /> Your Songs
@@ -474,7 +453,7 @@ export default function CrewTunes() {
                         {isUniversal && (
                           <p className="text-center text-xs text-amber-400 mt-3 flex items-center justify-center gap-1">
                             <ExternalLink className="w-3 h-3" />
-                            Opens song.link page — tap {platformName} there
+                            Opens in browser — tap <strong>{platformName}</strong> on the next page
                           </p>
                         )}
                       </div>
