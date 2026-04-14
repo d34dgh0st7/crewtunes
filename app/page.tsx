@@ -147,28 +147,33 @@ export default function CrewTunes() {
 
   const selectSong = async (result: SearchResult) => {
     setIsLoading(true);
-    const song = await fetchSongFromOdesli(result.appleLink);
-    setIsLoading(false);
+    let song = await fetchSongFromOdesli(result.appleLink);
 
-    if (song) {
-      setCurrentSong(song);
-      setSearchResults([]);
-    } else {
-      alert("Could not load full song details from streaming services. Try selecting a different result or pasting a direct link.");
+    // Fallback: if Odesli fails, create basic song info from search result
+    if (!song) {
+      song = {
+        title: result.title,
+        artist: result.artist,
+        artwork: result.artwork,
+        originalLink: result.appleLink,
+        links: {
+          appleMusic: result.appleLink,
+        },
+      };
     }
+
+    setIsLoading(false);
+    setCurrentSong(song);
+    setSearchResults([]);
   };
 
   const fetchSongFromOdesli = async (urlOrQuery: string): Promise<SongInfo | null> => {
     try {
-      const encoded = encodeURIComponent(urlOrQuery);
-      const res = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encoded}`);
-      
-      if (!res.ok) throw new Error(`Song.link returned ${res.status}`);
-      
+      const res = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(urlOrQuery)}`);
+      if (!res.ok) return null;
       const data = await res.json();
       const entity = data.entitiesByUniqueId?.[data.entityUniqueId];
-
-      if (!entity) throw new Error("No song data returned");
+      if (!entity) return null;
 
       return {
         title: entity.title || 'Unknown Title',
@@ -181,8 +186,7 @@ export default function CrewTunes() {
           youtubeMusic: data.linksByPlatform?.youtubeMusic?.url,
         },
       };
-    } catch (err) {
-      console.error("Odesli fetch failed:", err);
+    } catch {
       return null;
     }
   };
@@ -439,7 +443,8 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
+                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
