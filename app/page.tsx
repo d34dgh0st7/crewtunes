@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Clock, Play, Check, ExternalLink, Send, Inbox } from 'lucide-react';
+import { Music, Clock, Play, Check, ExternalLink, Send, Inbox, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
 interface SongInfo {
@@ -66,7 +66,6 @@ export default function CrewTunes() {
   const [newPassword, setNewPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // New: Tab state
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
 
   const supabase = createClient();
@@ -257,7 +256,6 @@ export default function CrewTunes() {
     }
   };
 
-  // Split shares into Received and Sent
   const receivedShares = shares.filter(share => share.recipients.includes(user?.email));
   const sentShares = shares.filter(share => share.shared_by === user?.email);
 
@@ -334,7 +332,7 @@ export default function CrewTunes() {
               </button>
             </div>
 
-            <button onClick={() => setShowSettings(false)} className="text-zinc-400 hover:text-white">
+            <button onClick={() => setShowSettings(false)} className="text-zinc-400 hover:text-white block mx-auto">
               Close
             </button>
           </div>
@@ -487,20 +485,20 @@ export default function CrewTunes() {
             <div className="flex border-b border-zinc-800 mb-6">
               <button
                 onClick={() => setActiveTab('received')}
-                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all ${
+                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all flex items-center justify-center gap-2 ${
                   activeTab === 'received' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-400'
                 }`}
               >
-                <Inbox className="inline w-5 h-5 mr-2" />
+                <Inbox className="w-5 h-5" />
                 Received
               </button>
               <button
                 onClick={() => setActiveTab('sent')}
-                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all ${
+                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all flex items-center justify-center gap-2 ${
                   activeTab === 'sent' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-400'
                 }`}
               >
-                <Send className="inline w-5 h-5 mr-2" />
+                <Send className="w-5 h-5" />
                 Sent
               </button>
             </div>
