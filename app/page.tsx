@@ -84,13 +84,22 @@ export default function CrewTunes() {
   }, [user]);
 
   const loadUserProfile = async () => {
-    const { data } = await supabase.from('profiles').select('preferred_platform').eq('id', user.id).single();
+    const { data } = await supabase
+      .from('profiles')
+      .select('preferred_platform')
+      .eq('id', user.id)
+      .single();
+
     if (data?.preferred_platform) setMyPreferredPlatform(data.preferred_platform);
   };
 
   const loadAllUsers = async () => {
     setLoadingUsers(true);
-    const { data, error } = await supabase.from('profiles').select('id, email, preferred_platform').neq('id', user.id);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, preferred_platform')
+      .neq('id', user.id);
+
     if (error) console.error(error);
     else {
       const usersWithSelection = (data || []).map(u => ({ ...u, selected: false }));
@@ -101,7 +110,11 @@ export default function CrewTunes() {
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    const { data, error } = await supabase.from('shares').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('shares')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (error) console.error(error);
     else setShares(data || []);
     setLoadingHistory(false);
@@ -109,7 +122,10 @@ export default function CrewTunes() {
 
   const savePreferredPlatform = async (platform: string) => {
     setMyPreferredPlatform(platform);
-    await supabase.from('profiles').update({ preferred_platform: platform }).eq('id', user.id);
+    await supabase
+      .from('profiles')
+      .update({ preferred_platform: platform })
+      .eq('id', user.id);
   };
 
   const handleSearch = async () => {
@@ -124,10 +140,13 @@ export default function CrewTunes() {
         if (song) setCurrentSong(song);
       } else {
         const res = await fetch(`/api/search?term=${encodeURIComponent(songInput)}`);
-        if (!res.ok) throw new Error('Search failed');
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Search failed');
+        }
         const data = await res.json();
 
-        if (data.results?.length) {
+        if (data.results && data.results.length > 0) {
           setSearchResults(data.results.map((item: any) => ({
             title: item.trackName,
             artist: item.artistName,
@@ -135,26 +154,24 @@ export default function CrewTunes() {
             appleLink: item.trackViewUrl,
           })));
         } else {
-          alert("No songs found.");
+          alert("No songs found. Try a different search term.");
         }
       }
-    } catch (err) {
-      console.error(err);
-      alert("Search failed. Please try again.");
+    } catch (err: any) {
+      console.error("Search error:", err);
+      alert(`Search failed: ${err.message || 'Please try again.'}`);
     }
     setIsLoading(false);
   };
 
   const selectSong = async (result: SearchResult) => {
-    console.log("Selected song:", result); // Debug log
     setIsLoading(true);
     const song = await fetchSongFromOdesli(result.appleLink);
     setIsLoading(false);
 
     if (song) {
-      console.log("Fetched full song data:", song);
       setCurrentSong(song);
-      setSearchResults([]);   // Clear results after selection
+      setSearchResults([]);
     } else {
       alert("Could not load song details. Please try again.");
     }
@@ -213,17 +230,6 @@ export default function CrewTunes() {
     if (error) {
       alert(`Failed to save: ${error.message}`);
     } else {
-      fetchHistory();
-      setCurrentSong(null);
-      setSongInput('');
-      setSearchResults([]);
-      alert(`✅ Shared successfully!`);
-    }
-  };
-
-    const { error } = await supabase.from('shares').insert(newShare);
-    if (error) alert(`Failed to save: ${error.message}`);
-    else {
       fetchHistory();
       setCurrentSong(null);
       setSongInput('');
@@ -369,7 +375,7 @@ export default function CrewTunes() {
                       className="flex gap-5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 hover:border-violet-500 rounded-2xl p-4 text-left transition-all active:scale-95"
                     >
                       {result.artwork && <img src={result.artwork} className="w-20 h-20 rounded-xl object-cover" />}
-                      <div className="text-left">
+                      <div>
                         <p className="font-semibold">{result.title}</p>
                         <p className="text-zinc-400">{result.artist}</p>
                       </div>
@@ -409,7 +415,7 @@ export default function CrewTunes() {
 
                 <div className="bg-zinc-950 border border-zinc-700 rounded-3xl p-8">
                   <div className="flex gap-8">
-                    {currentSong.artwork && <img src={currentSong.artwork} className="w-52 h-52 rounded-2xl object-cover flex-shrink-0" />}
+                    {currentSong.artwork && <img src={currentSong.artwork} className="w-52 h-52 rounded-2xl object-cover" />}
                     <div>
                       <h3 className="text-4xl font-bold">{currentSong.title}</h3>
                       <p className="text-2xl text-zinc-400 mt-2">{currentSong.artist}</p>
@@ -445,7 +451,8 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
+                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
