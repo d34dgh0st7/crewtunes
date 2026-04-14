@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Clock, Play, Check, ExternalLink, Send, Inbox, Settings, Users } from 'lucide-react';
+import { Music, Clock, Play, Check, ExternalLink, Send, Inbox, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
 interface SongInfo {
@@ -67,7 +67,6 @@ export default function CrewTunes() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
-  const [sentSortBy, setSentSortBy] = useState<'date' | 'recipient'>('date');
 
   const supabase = createClient();
 
@@ -240,7 +239,7 @@ export default function CrewTunes() {
 
     if (error) alert(`Failed to save: ${error.message}`);
     else {
-      fetchHistory();
+      fetchHistory();   // Refresh history immediately
       setCurrentSong(null);
       setSongInput('');
       setSearchResults([]);
@@ -257,18 +256,9 @@ export default function CrewTunes() {
     }
   };
 
-  const receivedShares = shares.filter(share => share.recipients.includes(user?.email));
+  // Safer filtering
+  const receivedShares = shares.filter(share => share.recipients.some(r => r === user?.email));
   const sentShares = shares.filter(share => share.shared_by === user?.email);
-
-  // Sort sent shares
-  const sortedSentShares = [...sentShares].sort((a, b) => {
-    if (sentSortBy === 'date') {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    } else {
-      // Sort by first recipient email
-      return a.recipients[0]?.localeCompare(b.recipients[0] || '') || 0;
-    }
-  });
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -572,25 +562,14 @@ export default function CrewTunes() {
 
                 {activeTab === 'sent' && (
                   <>
-                    <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-semibold flex items-center gap-3">
-                        <Send className="w-6 h-6 text-violet-400" /> Songs I Shared
-                      </h2>
-                      <select 
-                        value={sentSortBy} 
-                        onChange={(e) => setSentSortBy(e.target.value as 'date' | 'recipient')}
-                        className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-2 text-sm"
-                      >
-                        <option value="date">Newest first</option>
-                        <option value="recipient">By recipient</option>
-                      </select>
-                    </div>
-
+                    <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
+                      <Send className="w-6 h-6 text-violet-400" /> Songs I Shared
+                    </h2>
                     {sentShares.length === 0 ? (
                       <p className="text-center py-12 text-zinc-500">You haven't shared any songs yet.</p>
                     ) : (
                       <div className="space-y-8">
-                        {sortedSentShares.map((share) => (
+                        {sentShares.map((share) => (
                           <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
                             <div className="flex gap-6">
                               {share.artwork && <img src={share.artwork} className="w-28 h-28 rounded-2xl object-cover" />}
@@ -598,7 +577,7 @@ export default function CrewTunes() {
                                 <p className="text-2xl font-semibold">{share.song_title}</p>
                                 <p className="text-zinc-400">{share.song_artist}</p>
                                 <p className="text-xs text-zinc-500 mt-2">
-                                  Shared with: <span className="font-medium">{share.recipients.join(', ')}</span>
+                                  Shared with: <span className="font-medium text-white">{share.recipients.join(', ')}</span>
                                 </p>
                                 <p className="text-xs text-zinc-500 mt-1">
                                   {new Date(share.created_at).toLocaleDateString('en-GB')}
