@@ -123,8 +123,10 @@ export default function CrewTunes() {
         const song = await fetchSongFromOdesli(songInput);
         if (song) setCurrentSong(song);
       } else {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(songInput)}&limit=6&media=music`);
+        const res = await fetch(`/api/search?term=${encodeURIComponent(songInput)}`);
+        if (!res.ok) throw new Error('Search failed');
         const data = await res.json();
+
         if (data.results?.length) {
           setSearchResults(data.results.map((item: any) => ({
             title: item.trackName,
@@ -136,19 +138,25 @@ export default function CrewTunes() {
           alert("No songs found.");
         }
       }
-    } catch {
-      alert("Search failed.");
+    } catch (err) {
+      console.error(err);
+      alert("Search failed. Please try again.");
     }
     setIsLoading(false);
   };
 
   const selectSong = async (result: SearchResult) => {
+    console.log("Selected song:", result); // Debug log
     setIsLoading(true);
     const song = await fetchSongFromOdesli(result.appleLink);
     setIsLoading(false);
+
     if (song) {
+      console.log("Fetched full song data:", song);
       setCurrentSong(song);
-      setSearchResults([]);
+      setSearchResults([]);   // Clear results after selection
+    } else {
+      alert("Could not load song details. Please try again.");
     }
   };
 
@@ -168,7 +176,8 @@ export default function CrewTunes() {
           youtubeMusic: data.linksByPlatform?.youtubeMusic?.url,
         },
       };
-    } catch {
+    } catch (err) {
+      console.error("Odesli error:", err);
       return null;
     }
   };
@@ -344,10 +353,10 @@ export default function CrewTunes() {
                     <button
                       key={i}
                       onClick={() => selectSong(result)}
-                      className="flex gap-5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 hover:border-violet-500 rounded-2xl p-4 text-left transition"
+                      className="flex gap-5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-800 hover:border-violet-500 rounded-2xl p-4 text-left transition-all active:scale-95"
                     >
                       {result.artwork && <img src={result.artwork} className="w-20 h-20 rounded-xl object-cover" />}
-                      <div>
+                      <div className="text-left">
                         <p className="font-semibold">{result.title}</p>
                         <p className="text-zinc-400">{result.artist}</p>
                       </div>
@@ -387,7 +396,7 @@ export default function CrewTunes() {
 
                 <div className="bg-zinc-950 border border-zinc-700 rounded-3xl p-8">
                   <div className="flex gap-8">
-                    {currentSong.artwork && <img src={currentSong.artwork} className="w-52 h-52 rounded-2xl object-cover" />}
+                    {currentSong.artwork && <img src={currentSong.artwork} className="w-52 h-52 rounded-2xl object-cover flex-shrink-0" />}
                     <div>
                       <h3 className="text-4xl font-bold">{currentSong.title}</h3>
                       <p className="text-2xl text-zinc-400 mt-2">{currentSong.artist}</p>
@@ -408,7 +417,7 @@ export default function CrewTunes() {
             )}
           </div>
 
-          {/* Your Songs - Final Version */}
+          {/* Your Songs */}
           <div>
             <h2 className="text-2xl font-semibold mb-8 flex items-center gap-3">
               <Clock className="w-6 h-6 text-violet-400" /> Your Songs
@@ -423,8 +432,7 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
-                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
@@ -453,7 +461,7 @@ export default function CrewTunes() {
                         {isUniversal && (
                           <p className="text-center text-xs text-amber-400 mt-3 flex items-center justify-center gap-1">
                             <ExternalLink className="w-3 h-3" />
-                            Opens in browser — tap <strong>{platformName}</strong> on the next page
+                            Opens song.link page — tap {platformName} there
                           </p>
                         )}
                       </div>
