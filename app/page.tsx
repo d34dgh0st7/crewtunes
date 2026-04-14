@@ -240,7 +240,7 @@ export default function CrewTunes() {
     if (error) {
       alert(`Failed to save: ${error.message}`);
     } else {
-      // Force refresh history after share
+      // Force refresh after share
       await fetchHistory();
       setCurrentSong(null);
       setSongInput('');
@@ -258,9 +258,14 @@ export default function CrewTunes() {
     }
   };
 
-  // Robust filtering
-  const receivedShares = shares.filter(share => share.recipients.some(r => r.toLowerCase() === user?.email?.toLowerCase()));
-  const sentShares = shares.filter(share => share.shared_by.toLowerCase() === user?.email?.toLowerCase());
+  // Case-insensitive filtering
+  const receivedShares = shares.filter(share => 
+    share.recipients.some(r => r.toLowerCase() === (user?.email || '').toLowerCase())
+  );
+
+  const sentShares = shares.filter(share => 
+    share.shared_by.toLowerCase() === (user?.email || '').toLowerCase()
+  );
 
   const handleLogin = async () => {
     setAuthLoading(true);
