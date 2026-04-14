@@ -107,7 +107,7 @@ export default function CrewTunes() {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     const { data, error } = await supabase.from('shares').select('*').order('created_at', { ascending: false });
-    if (error) console.error(error);
+    if (error) console.error('History fetch error:', error);
     else setShares(data || []);
     setLoadingHistory(false);
   };
@@ -237,9 +237,11 @@ export default function CrewTunes() {
 
     const { error } = await supabase.from('shares').insert(newShare);
 
-    if (error) alert(`Failed to save: ${error.message}`);
-    else {
-      fetchHistory(); // Refresh immediately
+    if (error) {
+      alert(`Failed to save: ${error.message}`);
+    } else {
+      // Force refresh history after share
+      await fetchHistory();
       setCurrentSong(null);
       setSongInput('');
       setSearchResults([]);
@@ -256,9 +258,9 @@ export default function CrewTunes() {
     }
   };
 
-  // Safer filtering
-  const receivedShares = shares.filter(share => share.recipients.some(r => r === user?.email));
-  const sentShares = shares.filter(share => share.shared_by === user?.email);
+  // Robust filtering
+  const receivedShares = shares.filter(share => share.recipients.some(r => r.toLowerCase() === user?.email?.toLowerCase()));
+  const sentShares = shares.filter(share => share.shared_by.toLowerCase() === user?.email?.toLowerCase());
 
   const handleLogin = async () => {
     setAuthLoading(true);
