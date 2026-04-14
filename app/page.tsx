@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Clock, Play, Check, ExternalLink, Settings } from 'lucide-react';
+import { Music, Clock, Play, Check, ExternalLink, Send, Inbox } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
 interface SongInfo {
@@ -66,6 +66,9 @@ export default function CrewTunes() {
   const [newPassword, setNewPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // New: Tab state
+  const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -120,11 +123,9 @@ export default function CrewTunes() {
       alert("Password must be at least 6 characters");
       return;
     }
-
     setChangingPassword(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setChangingPassword(false);
-
     if (error) alert(error.message);
     else {
       alert("Password changed successfully!");
@@ -256,7 +257,9 @@ export default function CrewTunes() {
     }
   };
 
-  const visibleShares = shares.filter(share => share.recipients.includes(user?.email));
+  // Split shares into Received and Sent
+  const receivedShares = shares.filter(share => share.recipients.includes(user?.email));
+  const sentShares = shares.filter(share => share.shared_by === user?.email);
 
   const handleLogin = async () => {
     setAuthLoading(true);
@@ -267,7 +270,6 @@ export default function CrewTunes() {
   };
 
   const handleSignup = async () => {
-    if (!email || !password) return alert("Email and password required");
     setAuthLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
     setAuthLoading(false);
@@ -480,58 +482,113 @@ export default function CrewTunes() {
             )}
           </div>
 
-          {/* Your Songs */}
+          {/* Two Tabs: Received & Sent */}
           <div>
-            <h2 className="text-2xl font-semibold mb-8 flex items-center gap-3">
-              <Clock className="w-6 h-6 text-violet-400" /> Your Songs
-            </h2>
+            <div className="flex border-b border-zinc-800 mb-6">
+              <button
+                onClick={() => setActiveTab('received')}
+                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all ${
+                  activeTab === 'received' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-400'
+                }`}
+              >
+                <Inbox className="inline w-5 h-5 mr-2" />
+                Received
+              </button>
+              <button
+                onClick={() => setActiveTab('sent')}
+                className={`flex-1 py-4 text-center font-medium border-b-2 transition-all ${
+                  activeTab === 'sent' ? 'border-violet-500 text-white' : 'border-transparent text-zinc-400'
+                }`}
+              >
+                <Send className="inline w-5 h-5 mr-2" />
+                Sent
+              </button>
+            </div>
 
             {loadingHistory ? (
               <p className="text-center py-12 text-zinc-500">Loading...</p>
-            ) : visibleShares.length === 0 ? (
-              <p className="text-center py-12 text-zinc-500">No songs shared with you yet.</p>
             ) : (
-              <div className="space-y-8">
-                {visibleShares.map((share) => {
-                  const link = getPlatformLink(share);
-                  const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+              <>
+                {activeTab === 'received' && (
+                  <>
+                    <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
+                      <Clock className="w-6 h-6 text-violet-400" /> Songs Shared With Me
+                    </h2>
+                    {receivedShares.length === 0 ? (
+                      <p className="text-center py-12 text-zinc-500">No songs shared with you yet.</p>
+                    ) : (
+                      <div className="space-y-8">
+                        {receivedShares.map((share) => {
+                          const link = getPlatformLink(share);
+                          const isUniversal = link.includes('song.link') || link.includes('odesli');
+                          const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
-                  return (
-                    <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
-                      <div className="flex gap-6">
-                        {share.artwork && <img src={share.artwork} className="w-28 h-28 rounded-2xl object-cover" />}
-                        <div className="flex-1">
-                          <p className="text-2xl font-semibold">{share.song_title}</p>
-                          <p className="text-zinc-400">{share.song_artist}</p>
-                          <p className="text-xs text-zinc-500 mt-4">
-                            From {share.shared_by} • {new Date(share.created_at).toLocaleDateString('en-GB')}
-                          </p>
-                        </div>
+                          return (
+                            <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
+                              <div className="flex gap-6">
+                                {share.artwork && <img src={share.artwork} className="w-28 h-28 rounded-2xl object-cover" />}
+                                <div className="flex-1">
+                                  <p className="text-2xl font-semibold">{share.song_title}</p>
+                                  <p className="text-zinc-400">{share.song_artist}</p>
+                                  <p className="text-xs text-zinc-500 mt-4">
+                                    From {share.shared_by} • {new Date(share.created_at).toLocaleDateString('en-GB')}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-8">
+                                <a
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-500 rounded-2xl text-white font-medium transition w-full"
+                                >
+                                  <Play className="w-5 h-5" />
+                                  Open in {platformName}
+                                </a>
+                                {isUniversal && (
+                                  <p className="text-center text-xs text-amber-400 mt-3 flex items-center justify-center gap-1">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Opens song.link page — tap {platformName} there
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
+                    )}
+                  </>
+                )}
 
-                      <div className="mt-8">
-                        <a
-                          href={link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 px-8 py-4 bg-green-600 hover:bg-green-500 rounded-2xl text-white font-medium transition w-full"
-                        >
-                          <Play className="w-5 h-5" />
-                          Open in {platformName}
-                        </a>
-
-                        {isUniversal && (
-                          <p className="text-center text-xs text-amber-400 mt-3 flex items-center justify-center gap-1">
-                            <ExternalLink className="w-3 h-3" />
-                            Opens song.link page — tap {platformName} there
-                          </p>
-                        )}
+                {activeTab === 'sent' && (
+                  <>
+                    <h2 className="text-2xl font-semibold mb-6 flex items-center gap-3">
+                      <Send className="w-6 h-6 text-violet-400" /> Songs I Shared
+                    </h2>
+                    {sentShares.length === 0 ? (
+                      <p className="text-center py-12 text-zinc-500">You haven't shared any songs yet.</p>
+                    ) : (
+                      <div className="space-y-8">
+                        {sentShares.map((share) => (
+                          <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
+                            <div className="flex gap-6">
+                              {share.artwork && <img src={share.artwork} className="w-28 h-28 rounded-2xl object-cover" />}
+                              <div className="flex-1">
+                                <p className="text-2xl font-semibold">{share.song_title}</p>
+                                <p className="text-zinc-400">{share.song_artist}</p>
+                                <p className="text-xs text-zinc-500 mt-4">
+                                  Shared with {share.recipients.length} user{share.recipients.length !== 1 ? 's' : ''} • {new Date(share.created_at).toLocaleDateString('en-GB')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    )}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>
