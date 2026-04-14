@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Clock, Play, Check, ExternalLink } from 'lucide-react';
+import { Music, Clock, Play, Check, ExternalLink, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
 interface SongInfo {
@@ -62,6 +62,9 @@ export default function CrewTunes() {
 
   const [allUsers, setAllUsers] = useState<Profile[]>([]);
   const [myPreferredPlatform, setMyPreferredPlatform] = useState('spotify');
+  const [showSettings, setShowSettings] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const supabase = createClient();
 
@@ -112,6 +115,24 @@ export default function CrewTunes() {
     await supabase.from('profiles').update({ preferred_platform: platform }).eq('id', user.id);
   };
 
+  const changePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+
+    setChangingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setChangingPassword(false);
+
+    if (error) alert(error.message);
+    else {
+      alert("Password changed successfully!");
+      setNewPassword('');
+      setShowSettings(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!songInput.trim()) return;
     setIsLoading(true);
@@ -149,16 +170,13 @@ export default function CrewTunes() {
     setIsLoading(true);
     let song = await fetchSongFromOdesli(result.appleLink);
 
-    // Fallback: if Odesli fails, create basic song info from search result
     if (!song) {
       song = {
         title: result.title,
         artist: result.artist,
         artwork: result.artwork,
         originalLink: result.appleLink,
-        links: {
-          appleMusic: result.appleLink,
-        },
+        links: { appleMusic: result.appleLink },
       };
     }
 
@@ -219,9 +237,8 @@ export default function CrewTunes() {
 
     const { error } = await supabase.from('shares').insert(newShare);
 
-    if (error) {
-      alert(`Failed to save: ${error.message}`);
-    } else {
+    if (error) alert(`Failed to save: ${error.message}`);
+    else {
       fetchHistory();
       setCurrentSong(null);
       setSongInput('');
@@ -250,11 +267,12 @@ export default function CrewTunes() {
   };
 
   const handleSignup = async () => {
+    if (!email || !password) return alert("Email and password required");
     setAuthLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
-    if (error) alert(error.message);
-    else alert("Account created! You can now log in.");
     setAuthLoading(false);
+    if (error) alert(error.message);
+    else alert("Account created! Please log in.");
   };
 
   return (
@@ -273,7 +291,10 @@ export default function CrewTunes() {
           </div>
 
           {user ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-zinc-800 rounded-xl">
+                <Settings className="w-5 h-5" />
+              </button>
               <span className="text-sm text-zinc-300">{user.email}</span>
               <button onClick={() => supabase.auth.signOut()} className="px-4 py-2 bg-zinc-900 hover:bg-red-950 rounded-2xl text-sm transition">
                 Logout
@@ -286,6 +307,37 @@ export default function CrewTunes() {
           )}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && user && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-6">Settings</h2>
+            
+            <div className="mb-6">
+              <p className="text-sm text-zinc-400 mb-2">Change password</p>
+              <input
+                type="password"
+                placeholder="New password (min 6 characters)"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 mb-4"
+              />
+              <button
+                onClick={changePassword}
+                disabled={changingPassword || !newPassword}
+                className="w-full bg-violet-600 py-3 rounded-2xl font-semibold disabled:opacity-50"
+              >
+                {changingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+
+            <button onClick={() => setShowSettings(false)} className="text-zinc-400 hover:text-white">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Auth Modal */}
       {showAuthModal && (
@@ -443,8 +495,7 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
-                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
