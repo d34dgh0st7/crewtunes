@@ -188,40 +188,37 @@ export default function CrewTunes() {
 
   const selectedUsers = allUsers.filter(u => u.selected === true);
 
-  const handleSearch = async () => {
-    if (!songInput.trim()) return;
-    setIsLoading(true);
-    setSearchResults([]);
-    setCurrentSong(null);
-
-    try {
-      if (songInput.startsWith('http')) {
-        const song = await fetchSongFromOdesli(songInput);
-        if (song) setCurrentSong(song);
-      } else {
-        const res = await fetch(`/api/search?term=${encodeURIComponent(songInput)}`);
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Search failed');
-        }
-        const data = await res.json();
-
-        if (data.results && data.results.length > 0) {
-          setSearchResults(data.results.map((item: any) => ({
-            title: item.trackName,
-            artist: item.artistName,
-            artwork: item.artworkUrl100?.replace('100x100', '300x300'),
-            appleLink: item.trackViewUrl,
-          })));
-        } else {
-          alert("No songs found. Try a different search term.");
-        }
-      }
-    } catch (err: any) {
-      console.error("Search error:", err);
-      alert(`Search failed: ${err.message || 'Please try again.'}`);
+  const handleShare = async (song: SongInfo) => {
+    if (selectedUsers.length === 0) {
+      alert("Please select at least one user.");
+      return;
     }
-    setIsLoading(false);
+
+    const recipientEmails = selectedUsers.map(u => u.email);
+
+    const newShare = {
+      song_title: song.title,
+      song_artist: song.artist,
+      artwork: song.artwork || null,
+      original_link: song.originalLink || null,
+      spotify_link: song.links.spotify || null,
+      apple_music_link: song.links.appleMusic || null,
+      youtube_music_link: song.links.youtubeMusic || null,
+      shared_by: user.email,
+      recipients: recipientEmails,
+    };
+
+    const { error } = await supabase.from('shares').insert(newShare);
+
+    if (error) {
+      alert(`Failed to save: ${error.message}`);
+    } else {
+      fetchHistory();
+      setCurrentSong(null);
+      setSongInput('');
+      setSearchResults([]);
+      alert(`✅ Shared successfully!`);
+    }
   };
 
     const { error } = await supabase.from('shares').insert(newShare);
