@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Music, Clock, Play, Check, ExternalLink, Send, Inbox, Settings } from 'lucide-react';
+import { Music, Clock, Play, Check, ExternalLink, Send, Inbox, Settings, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
 interface SongInfo {
@@ -67,6 +67,8 @@ export default function CrewTunes() {
   const [changingPassword, setChangingPassword] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ user: string; song: string }[]>([]);
 
   const supabase = createClient();
 
@@ -215,6 +217,29 @@ export default function CrewTunes() {
 
   const selectedUsers = allUsers.filter(u => u.selected === true);
 
+  // Check if song was already shared with any selected user
+  const checkForDuplicates = (song: SongInfo, selectedEmails: string[]) => {
+    const duplicates: { user: string; song: string }[] = [];
+
+    selectedEmails.forEach(email => {
+      const alreadyShared = shares.some(share => 
+        share.shared_by.toLowerCase() === (user?.email || '').toLowerCase() &&
+        share.song_title.toLowerCase() === song.title.toLowerCase() &&
+        share.song_artist.toLowerCase() === song.artist.toLowerCase() &&
+        share.recipients.some(r => r.toLowerCase() === email.toLowerCase())
+      );
+
+      if (alreadyShared) {
+        duplicates.push({ 
+          user: email, 
+          song: `${song.title} - ${song.artist}` 
+        });
+      }
+    });
+
+    return duplicates;
+  };
+
   const handleShare = async (song: SongInfo) => {
     if (selectedUsers.length === 0) {
       alert("Please select at least one user.");
@@ -223,6 +248,20 @@ export default function CrewTunes() {
 
     const recipientEmails = selectedUsers.map(u => u.email);
 
+    // Check for duplicates
+    const duplicates = checkForDuplicates(song, recipientEmails);
+
+    if (duplicates.length > 0) {
+      setDuplicateInfo(duplicates);
+      setShowDuplicateWarning(true);
+      return;
+    }
+
+    // No duplicates → share directly
+    proceedWithShare(song, recipientEmails);
+  };
+
+  const proceedWithShare = async (song: SongInfo, recipientEmails: string[]) => {
     const newShare = {
       song_title: song.title,
       song_artist: song.artist,
@@ -240,13 +279,19 @@ export default function CrewTunes() {
     if (error) {
       alert(`Failed to save: ${error.message}`);
     } else {
-      // Force refresh after share
       await fetchHistory();
       setCurrentSong(null);
       setSongInput('');
       setSearchResults([]);
       alert(`✅ Shared successfully!`);
     }
+  };
+
+  const confirmShareAnyway = () => {
+    if (!currentSong) return;
+    const recipientEmails = selectedUsers.map(u => u.email);
+    setShowDuplicateWarning(false);
+    proceedWithShare(currentSong, recipientEmails);
   };
 
   const getPlatformLink = (share: Share) => {
@@ -258,7 +303,6 @@ export default function CrewTunes() {
     }
   };
 
-  // Case-insensitive filtering
   const receivedShares = shares.filter(share => 
     share.recipients.some(r => r.toLowerCase() === (user?.email || '').toLowerCase())
   );
@@ -316,6 +360,44 @@ export default function CrewTunes() {
         </div>
       </div>
 
+      {/* Duplicate Warning Modal */}
+      {showDuplicateWarning && (
+        <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4">
+          <div className="bg-zinc-900 rounded-3xl p-8 w-full max-w-md">
+            <div className="flex items-center gap-3 text-amber-400 mb-6">
+              <AlertTriangle className="w-8 h-8" />
+              <h2 className="text-2xl font-bold">Already Shared</h2>
+            </div>
+
+            <p className="text-zinc-400 mb-6">You have already shared this song with the following users:</p>
+
+            <div className="space-y-3 mb-8 max-h-60 overflow-y-auto">
+              {duplicateInfo.map((item, i) => (
+                <div key={i} className="bg-zinc-950 border border-amber-500/30 rounded-2xl p-4">
+                  <p className="font-medium text-white">{item.user}</p>
+                  <p className="text-sm text-zinc-500">{item.song}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDuplicateWarning(false)}
+                className="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmShareAnyway}
+                className="flex-1 py-4 bg-amber-600 hover:bg-amber-500 rounded-2xl font-medium transition"
+              >
+                Share Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Settings Modal */}
       {showSettings && user && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
@@ -354,14 +436,33 @@ export default function CrewTunes() {
             <h2 className="text-2xl font-bold mb-6 text-center">
               {authMode === 'login' ? 'Welcome back' : 'Create account'}
             </h2>
-            <input type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 mb-4" />
-            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 mb-6" />
+            <input 
+              type="email" 
+              placeholder="your@email.com" 
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)} 
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 mb-4" 
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="w-full bg-zinc-950 border border-zinc-700 rounded-2xl px-5 py-3 mb-6" 
+            />
 
-            <button onClick={authMode === 'login' ? handleLogin : handleSignup} disabled={authLoading} className="w-full bg-violet-600 py-4 rounded-2xl font-semibold mb-4 disabled:opacity-50">
+            <button 
+              onClick={authMode === 'login' ? handleLogin : handleSignup} 
+              disabled={authLoading} 
+              className="w-full bg-violet-600 py-4 rounded-2xl font-semibold mb-4 disabled:opacity-50"
+            >
               {authLoading ? 'Processing...' : authMode === 'login' ? 'Log In' : 'Sign Up'}
             </button>
 
-            <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-sm text-zinc-400 hover:text-white block mx-auto">
+            <button 
+              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} 
+              className="text-sm text-zinc-400 hover:text-white block mx-auto"
+            >
               {authMode === 'login' ? "Don't have an account? Sign up" : "Already have an account? Log in"}
             </button>
           </div>
