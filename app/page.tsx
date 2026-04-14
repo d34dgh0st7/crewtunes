@@ -239,7 +239,7 @@ export default function CrewTunes() {
 
     if (error) alert(`Failed to save: ${error.message}`);
     else {
-      fetchHistory();   // Refresh history immediately
+      fetchHistory(); // Refresh immediately
       setCurrentSong(null);
       setSongInput('');
       setSearchResults([]);
