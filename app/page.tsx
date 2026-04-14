@@ -84,22 +84,13 @@ export default function CrewTunes() {
   }, [user]);
 
   const loadUserProfile = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('preferred_platform')
-      .eq('id', user.id)
-      .single();
-
+    const { data } = await supabase.from('profiles').select('preferred_platform').eq('id', user.id).single();
     if (data?.preferred_platform) setMyPreferredPlatform(data.preferred_platform);
   };
 
   const loadAllUsers = async () => {
     setLoadingUsers(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, preferred_platform')
-      .neq('id', user.id);
-
+    const { data, error } = await supabase.from('profiles').select('id, email, preferred_platform').neq('id', user.id);
     if (error) console.error(error);
     else {
       const usersWithSelection = (data || []).map(u => ({ ...u, selected: false }));
@@ -110,11 +101,7 @@ export default function CrewTunes() {
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from('shares')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    const { data, error } = await supabase.from('shares').select('*').order('created_at', { ascending: false });
     if (error) console.error(error);
     else setShares(data || []);
     setLoadingHistory(false);
@@ -122,10 +109,7 @@ export default function CrewTunes() {
 
   const savePreferredPlatform = async (platform: string) => {
     setMyPreferredPlatform(platform);
-    await supabase
-      .from('profiles')
-      .update({ preferred_platform: platform })
-      .eq('id', user.id);
+    await supabase.from('profiles').update({ preferred_platform: platform }).eq('id', user.id);
   };
 
   const handleSearch = async () => {
@@ -140,10 +124,7 @@ export default function CrewTunes() {
         if (song) setCurrentSong(song);
       } else {
         const res = await fetch(`/api/search?term=${encodeURIComponent(songInput)}`);
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.message || 'Search failed');
-        }
+        if (!res.ok) throw new Error('Search request failed');
         const data = await res.json();
 
         if (data.results && data.results.length > 0) {
@@ -157,9 +138,9 @@ export default function CrewTunes() {
           alert("No songs found. Try a different search term.");
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Search error:", err);
-      alert(`Search failed: ${err.message || 'Please try again.'}`);
+      alert("Search failed. Please try again.");
     }
     setIsLoading(false);
   };
@@ -173,15 +154,22 @@ export default function CrewTunes() {
       setCurrentSong(song);
       setSearchResults([]);
     } else {
-      alert("Could not load song details. Please try again.");
+      alert("Could not load full song details from streaming services. Try selecting a different result or pasting a direct link.");
     }
   };
 
   const fetchSongFromOdesli = async (urlOrQuery: string): Promise<SongInfo | null> => {
     try {
-      const res = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(urlOrQuery)}`);
+      const encoded = encodeURIComponent(urlOrQuery);
+      const res = await fetch(`https://api.song.link/v1-alpha.1/links?url=${encoded}`);
+      
+      if (!res.ok) throw new Error(`Song.link returned ${res.status}`);
+      
       const data = await res.json();
       const entity = data.entitiesByUniqueId?.[data.entityUniqueId];
+
+      if (!entity) throw new Error("No song data returned");
+
       return {
         title: entity.title || 'Unknown Title',
         artist: entity.artistName || 'Unknown Artist',
@@ -194,7 +182,7 @@ export default function CrewTunes() {
         },
       };
     } catch (err) {
-      console.error("Odesli error:", err);
+      console.error("Odesli fetch failed:", err);
       return null;
     }
   };
@@ -451,8 +439,7 @@ export default function CrewTunes() {
                 {visibleShares.map((share) => {
                   const link = getPlatformLink(share);
                   const isUniversal = link.includes('song.link') || link.includes('odesli');
-                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : 
-                                     myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
+                  const platformName = myPreferredPlatform === 'spotify' ? 'Spotify' : myPreferredPlatform === 'appleMusic' ? 'Apple Music' : 'YouTube Music';
 
                   return (
                     <div key={share.id} className="bg-zinc-900 border border-zinc-800 rounded-3xl p-7">
